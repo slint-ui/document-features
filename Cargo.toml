@@ -5,12 +5,11 @@
 name = "document-features"
 version = "0.1.0"
 authors = ["SixtyFPS <info@sixtyfps.io>"]
-edition = "2021"
-publish = false
+edition = "2018"
 license = "MIT OR Apache-2.0"
-repository = "https://github.com/sixtyfpsui/sixtyfps"
+repository = "https://github.com/sixtyfpsui/document-features"
 homepage = "https://sixtyfps.io"
-description = "Extract documentation for the feature flag from comments in Cargo.toml"
+description = "Extract documentation for the feature flags from comments in Cargo.toml"
 categories = ["development-tools"]
 keywords = ["documentation", "features", "rustdoc", "macro"]
 

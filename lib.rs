@@ -6,7 +6,7 @@ Document your crate's feature flags.
 
 This crate provide a macro that extracts "documentation" comments from Cargo.toml
 
-In order to use this crate, simply  add `#![doc = document_features::document_features!()]`
+In order to use this crate, add simply add `#![doc = document_features::document_features!()]`
 within your crate documentation.
 The [`document_features!()`] reads the Cargo.toml file and generate a markdown string
 suitable to be used within the documentation
@@ -48,6 +48,10 @@ in where they occurs. They are useful to do some grouping for example
 name = "..."
 ## ...
 
+[dependencies]
+document-features = "0.1"
+## ...
+
 [features]
 default = ["foo"]
 ##! This comments goes on top
@@ -74,6 +78,41 @@ The following features are experimental
 * **`fusion`** —  Enable the fusion reactor
 */
 )]
+/*!
+## Compatibility
+
+The minimum Rust version required to use this crate is Rust 1.54 because of the
+feature to have macro in doc comments, but you can use `#[cfg_attr()]` statements to make it works
+with very old Rust version.
+You need to have two levels of `cfg_attr` because Rust < 1.54 doesn't parse the attribute
+otherwise.
+
+```rust
+#![cfg_attr(doc, cfg_attr(all(), doc = ::document_features::document_features!()))]
+```
+
+The `document-features` does not have any dependency and compile very fast, but still we
+might want to make it optional so it is only required while compiling the documentation.
+We then can tell docs.rs to enable the feature with metadata.
+
+In your Cargo.toml
+
+```toml
+[dependencies]
+document-features = { version = "0.1", optional = true }
+
+[package.metadata.docs.rs]
+features = ["document-features"]
+# Alternative: enable all features so they are all documented
+# all-features = true
+```
+
+In your lib.rs
+```
+#![cfg_attr(feature = "document-features", cfg_attr(doc, doc = ::document_features::document_features!()))]
+```
+
+ */
 
 extern crate proc_macro;
 use proc_macro::TokenStream;
