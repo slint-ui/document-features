@@ -14,7 +14,7 @@ suitable to be used within the documentation
 Basic example:
 
 ```rust
-//! Normal crate documentation goes here,
+//! Normal crate documentation goes here.
 //!
 //! ## Feature flags
 #![doc = document_features::document_features!()]
@@ -79,23 +79,23 @@ The following features are experimental
 */
 )]
 /*!
+
 ## Compatibility
 
 The minimum Rust version required to use this crate is Rust 1.54 because of the
-feature to have macro in doc comments, but you can use `#[cfg_attr()]` statements to make it works
-with very old Rust version.
+feature to have macro in doc comments, but you can make this crate optional and use
+`#[cfg_attr()]` statements to enable it only when building the documentation:
 You need to have two levels of `cfg_attr` because Rust < 1.54 doesn't parse the attribute
 otherwise.
 
-```rust
-#![cfg_attr(doc, cfg_attr(all(), doc = ::document_features::document_features!()))]
+```rust,ignore
+#![cfg_attr(
+    feature = "document-features",
+    cfg_attr(doc, doc = ::document_features::document_features!())
+)]
 ```
 
-The `document-features` does not have any dependency and compile very fast, but still we
-might want to make it optional so it is only required while compiling the documentation.
-We then can tell docs.rs to enable the feature with metadata.
-
-In your Cargo.toml
+In your Cargo.toml, enable this feature while generating the documentation on docs.rs
 
 ```toml
 [dependencies]
@@ -103,15 +103,9 @@ document-features = { version = "0.1", optional = true }
 
 [package.metadata.docs.rs]
 features = ["document-features"]
-# Alternative: enable all features so they are all documented
-# all-features = true
+## Alternative: enable all features so they are all documented
+## all-features = true
 ```
-
-In your lib.rs
-```
-#![cfg_attr(feature = "document-features", cfg_attr(doc, doc = ::document_features::document_features!()))]
-```
-
  */
 
 extern crate proc_macro;
@@ -262,7 +256,7 @@ macro_rules! self_test {
             "\n`````\n Generates the following:\n\
             <table><tr><th>Preview</th></tr><tr><td>\n\n",
             $md,
-            "\n</td></tr></table\n",
+            "\n</td></tr></table>\n\n&nbsp;\n",
         )
     };
 }
