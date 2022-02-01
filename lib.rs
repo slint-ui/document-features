@@ -4,12 +4,11 @@
 /*!
 Document your crate's feature flags.
 
-This crate provide a macro that extracts "documentation" comments from Cargo.toml
+This crates provides a macro that extracts "documentation" comments from Cargo.toml
 
-In order to use this crate, add simply add `#![doc = document_features::document_features!()]`
-within your crate documentation.
-The [`document_features!()`] reads the Cargo.toml file and generate a markdown string
-suitable to be used within the documentation
+To use this crate, add `#![doc = document_features::document_features!()]` in your crate documentation.
+The `document_features!()` macro reads your `Cargo.toml` file, extracts feature comments and generates
+a markdown string for your documentation.
 
 Basic example:
 
@@ -24,19 +23,19 @@ Basic example:
 
 ## Documentation format:
 
-The documentation of the features itself goes in the `Cargo.toml`.
+The documentation of your crate features goes into `Cargo.toml`, where they are defined.
 
-Only the portion in the `[features]` section will be analyzed.
-Just like rust has documentation comments like `///` and `//!`, the macro will
-understands the comments that start with `## ` and `#! `. Note that the space
-is important. Lines starting with `###` will not be understood as doc comment.
+The `document_features!()` macro analyzes only the `[features]` section.
+Similar to Rust's documentation comments `///` and `//!`, the macro understands
+comments that start with `## ` and `#! `. Note the required trailing space.
+Lines starting with `###` will not be understood as doc comment.
 
-`## ` comments are meant to be *over* a feature and document that feature.
-there can be several `## ` comments, but they must always be followed by a
+`## ` comments are meant to be *above* the feature they document.
+There can be several `## ` comments, but they must always be followed by a
 feature name, and no other `#! ` comments in between.
 
 `#! ` comments are not associated with a particular feature, and will be printed
-in where they occurs. They are useful to do some grouping for example
+in where they occur. Use them to group features, for example.
 
 ## Examples:
 
@@ -56,10 +55,10 @@ document-features = "0.1"
 default = ["foo"]
 ##! This comments goes on top
 
-### The foo feature is enabling the `foo` functions
+### The foo feature enables the `foo` functions
 foo = []
 
-### The bar feature enable the bar module
+### The bar feature enables the bar module
 bar = []
 
 ##! ### Experimental features
@@ -71,8 +70,8 @@ fusion = []
 =>
     /**
 This comments goes on top
-* **`foo`** *(enabled by default)* —  The foo feature is enabling the `foo` functions
-* **`bar`** —  The bar feature enable the bar module
+* **`foo`** *(enabled by default)* —  The foo feature enables the `foo` functions
+* **`bar`** —  The bar feature enables the bar module
 #### Experimental features
 The following features are experimental
 * **`fusion`** —  Enable the fusion reactor
@@ -83,7 +82,7 @@ The following features are experimental
 ## Compatibility
 
 The minimum Rust version required to use this crate is Rust 1.54 because of the
-feature to have macro in doc comments, but you can make this crate optional and use
+feature to have macro in doc comments. You can make this crate optional and use
 `#[cfg_attr()]` statements to enable it only when building the documentation:
 You need to have two levels of `cfg_attr` because Rust < 1.54 doesn't parse the attribute
 otherwise.
@@ -95,7 +94,7 @@ otherwise.
 )]
 ```
 
-In your Cargo.toml, enable this feature while generating the documentation on docs.rs
+In your Cargo.toml, enable this feature while generating the documentation on docs.rs:
 
 ```toml
 [dependencies]
