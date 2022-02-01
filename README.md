@@ -40,4 +40,4 @@ Contributions are welcome. We accept pull requests and bug reports.
 
 ## License
 
-MIT
+MIT OR Apache-2.0
