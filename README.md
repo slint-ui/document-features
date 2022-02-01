@@ -40,4 +40,6 @@ Contributions are welcome. We accept pull requests and bug reports.
 
 ## License
 
-MIT
+This crate is licensed under MIT or Apache 2.0.
+
+See the LICENSES folder for the full text of your licensing options.
