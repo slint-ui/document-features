@@ -3,14 +3,13 @@
 [![Crates.io](https://img.shields.io/crates/v/document-features)](https://crates.io/crates/document-features)
 [![Documentation](https://docs.rs/document-features/badge.svg)](https://docs.rs/document-features/)
 
-This crate provide a macro that extracts "documentation" comments from Cargo.toml
+This crate provides a macro that extracts documentation comments from Cargo.toml
 
-In order to use this crate, simply add `#![doc = document_features::document_features!()]`
-within your crate documentation.
-The `document_features!()` reads the Cargo.toml file and generate a markdown string
-suitable to be used within the documentation.
+To use this crate, add `#![doc = document_features::document_features!()]` in your crate documentation.
+The `document_features!()` macro reads your `Cargo.toml` file, extracts feature comments and generates
+a markdown string for your documentation.
 
-Use `## ` and `#! ` comments in your Cargo.toml to document features.
+Use `## ` and `#! ` comments in your Cargo.toml to document features, for example:
 
 ```toml
 [dependencies]
@@ -18,9 +17,9 @@ document-features = "0.1"
 ## ...
 
 [features]
-## The foo feature is enabling the `foo` functions
+## The foo feature enables the `foo` functions
 foo = []
-## The bar feature enable the [`bar`] module
+## The bar feature enables the [`bar`] module
 bar = []
 
 #! ### Experimental features
@@ -30,9 +29,10 @@ bar = []
 fusion = []
 ```
 
-And these document will be rendered nicely in your documentation.
+These comments keep the feature definition and documentation next to each other, and they are then
+rendered into your crate documentation.
 
-Checkout the [documentation](https://docs.rs/document-features/) for more details
+Check out the [documentation](https://docs.rs/document-features/) for more details.
 
 ## Contributions
 
