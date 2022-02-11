@@ -25,14 +25,15 @@ Basic example:
 
 The documentation of your crate features goes into `Cargo.toml`, where they are defined.
 
-The `document_features!()` macro analyzes only the `[features]` section.
+The `document_features!()` macro analyzes the contents of `Cargo.toml`.
 Similar to Rust's documentation comments `///` and `//!`, the macro understands
 comments that start with `## ` and `#! `. Note the required trailing space.
 Lines starting with `###` will not be understood as doc comment.
 
 `## ` comments are meant to be *above* the feature they document.
 There can be several `## ` comments, but they must always be followed by a
-feature name, and no other `#! ` comments in between.
+feature name or an optional dependency.
+There should not be `#! ` comments between the comment and the feature they document.
 
 `#! ` comments are not associated with a particular feature, and will be printed
 in where they occur. Use them to group features, for example.
@@ -67,7 +68,7 @@ fusion = []
 ##! ### Optional dependencies
 
 ### Enable this when building the docs
-document-features = { version = "0.1", optional = true }
+document-features = { version = "0.2", optional = true }
 
 ### This awesome dependency is specified in its own table
 [dependencies.awesome]
@@ -113,7 +114,7 @@ In your Cargo.toml, enable this feature while generating the documentation on do
 
 ```toml
 [dependencies]
-document-features = { version = "0.1", optional = true }
+document-features = { version = "0.2", optional = true }
 
 [package.metadata.docs.rs]
 features = ["document-features"]
