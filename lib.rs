@@ -123,9 +123,15 @@ features = ["document-features"]
 ```
  */
 
-extern crate proc_macro;
-use proc_macro::TokenStream;
+#[cfg(not(feature = "default"))]
+compile_error!(
+    "The feature `default` must be enabled to ensure \
+    forward compatibility with future version of this crate"
+);
 
+extern crate proc_macro;
+
+use proc_macro::TokenStream;
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::path::Path;
