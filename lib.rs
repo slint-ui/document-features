@@ -62,6 +62,8 @@ bar = []
 ##! The following features are experimental
 
 ### Enable the fusion reactor
+###
+### ⚠️ Can lead to explosions
 fusion = []
 
 [dependencies]
@@ -85,6 +87,8 @@ This comments goes on top
 #### Experimental features
 The following features are experimental
 * **`fusion`** —  Enable the fusion reactor
+
+  ⚠️ Can lead to explosions
 
 #### Optional dependencies
 * **`document-features`** —  Enable this when building the docs
@@ -195,7 +199,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
             if !x.is_empty() && !x.starts_with(" ") {
                 continue; // it's not a doc comment
             }
-            writeln!(current_comment, "{}", x).unwrap();
+            writeln!(current_comment, " {}", x).unwrap();
         } else if let Some(table) = line.strip_prefix("[") {
             current_table = table
                 .split_once("]")
@@ -238,7 +242,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                     }
                 } else if current_table != "features" {
                     return Err(format!(
-                        "Comment cannot be associated with a feature: {}",
+                        "Comment cannot be associated with a feature:{}",
                         current_comment
                     ));
                 }
@@ -260,7 +264,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
     for (f, top, comment) in features {
         let default = if default_features.contains(f) { " *(enabled by default)*" } else { "" };
         if !comment.trim().is_empty() {
-            writeln!(result, "{}* **`{}`**{} — {}", top, f, default, comment).unwrap();
+            writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment).unwrap();
         } else {
             writeln!(result, "{}* **`{}`**{}\n", top, f, default).unwrap();
         }
@@ -471,7 +475,7 @@ default = ["feat1", "something_else"]
         "#
             )
             .unwrap(),
-            " abc\n def\n\n* **`feat1`** *(enabled by default)* —  123\n 456\n\n ghi\n* **`feat2`**\n\n klm\n end\n"
+            " abc\n def\n\n* **`feat1`** *(enabled by default)* —  123\n  456\n\n ghi\n* **`feat2`**\n\n klm\n end\n"
         );
     }
 
