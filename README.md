@@ -5,15 +5,18 @@
 
 This crate provides a macro that extracts documentation comments from Cargo.toml
 
-To use this crate, add `#![doc = document_features::document_features!()]` in your crate documentation.
+To use this crate, add `#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]` in your crate documentation.
 The `document_features!()` macro reads your `Cargo.toml` file, extracts feature comments and generates
 a markdown string for your documentation.
 
 Use `## ` and `#! ` comments in your Cargo.toml to document features, for example:
 
 ```toml
+[package.metadata.docs.rs]
+all-features = true # ensures that `document-features` is enabled when building docs
+
 [dependencies]
-document-features = "0.1"
+document-features = { version = "0.2", optional = true }
 ## ...
 
 [features]

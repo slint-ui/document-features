@@ -6,7 +6,7 @@ Document your crate's feature flags.
 
 This crates provides a macro that extracts "documentation" comments from Cargo.toml
 
-To use this crate, add `#![doc = document_features::document_features!()]` in your crate documentation.
+To use this crate, add `#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]` in your crate documentation.
 The `document_features!()` macro reads your `Cargo.toml` file, extracts feature comments and generates
 a markdown string for your documentation.
 
@@ -16,7 +16,7 @@ Basic example:
 //! Normal crate documentation goes here.
 //!
 //! ## Feature flags
-#![doc = document_features::document_features!()]
+#![cfg_attr(feature = "document-features", doc = document_features::document_features!())]
 
 // rest of the crate goes here.
 ```
@@ -46,7 +46,10 @@ in where they occur. Use them to group features, for example.
 #![doc = self_test!(/**
 [package]
 name = "..."
-## ...
+# ...
+
+[package.metadata.docs.rs]
+all-features = true # ensures that `document-features` is enabled when building docs
 
 [features]
 default = ["foo"]
