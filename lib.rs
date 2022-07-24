@@ -558,4 +558,36 @@ optional = true
             " top\n* **`dep1`** —  dep1\n\n yo\n* **`dep3`** —  dep3\n\n"
         );
     }
+
+    #[test]
+    fn multi_lines() {
+        assert_eq!(
+            process_toml(
+                r#"
+[dev-dependencies]
+## dep1
+dep1 = {
+    version="1.2-}",
+    optional=true
+}
+[features]
+default = [
+    "goo",
+    "\"]",
+    "bar",
+]
+## foo
+foo = [
+   "bar"
+]
+## bar
+bar = [
+
+]
+        "#
+            )
+            .unwrap(),
+            "* **`dep1`** —  dep1\n\n* **`foo`** —  foo\n\n* **`bar`** *(enabled by default)* —  bar\n\n"
+        );
+    }
 }
