@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 - unreleased
+
+* Fix parsing of dependencies or feature spanning multiple lines (#9)
+
 ## 0.2.1 - 2021-02-12
 
 * Fix indentation of multi-lines feature comments (#5)
