@@ -136,6 +136,7 @@ compile_error!(
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::path::Path;
@@ -217,6 +218,8 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                 ));
             }
         } else if let Some((dep, rest)) = line.split_once("=") {
+            let rest = get_balanced(rest, &mut lines)
+                .map_err(|e| format!("Parse error while parsing dependency {}: {}", dep, e))?;
             if current_table == "features" && dep.trim() == "default" {
                 let defaults = rest
                     .trim()
@@ -224,7 +227,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                     .and_then(|r| r.strip_suffix("]"))
                     .ok_or_else(|| format!("Parse error while parsing dependency {}", dep))?
                     .split(",")
-                    .map(|d| d.trim().trim_matches(|c| c == '"' || c == '\'').trim())
+                    .map(|d| d.trim().trim_matches(|c| c == '"' || c == '\'').trim().to_string())
                     .filter(|d| !d.is_empty());
                 default_features.extend(defaults);
             }
@@ -271,6 +274,48 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
     }
     result += &top_comment;
     Ok(result)
+}
+
+fn get_balanced<'a>(
+    first_line: &'a str,
+    lines: &mut impl Iterator<Item = &'a str>,
+) -> Result<Cow<'a, str>, String> {
+    let mut line = first_line.split_once('#').map_or(first_line, |(x, _)| x);
+    let mut result = Cow::from(line);
+
+    let mut in_quote = false;
+    let mut level = 0;
+    loop {
+        let mut last_slash = false;
+        for b in line.as_bytes() {
+            if last_slash {
+                last_slash = false
+            } else if in_quote {
+                match b {
+                    b'\\' => last_slash = true,
+                    b'"' | b'\'' => in_quote = false,
+                    _ => (),
+                }
+            } else {
+                match b {
+                    b'"' => in_quote = true,
+                    b'{' | b'[' => level += 1,
+                    b'}' | b']' if level == 0 => return Err("unbalanced source".into()),
+                    b'}' | b']' => level -= 1,
+                    _ => (),
+                }
+            }
+        }
+        if level == 0 {
+            return Ok(result);
+        }
+        line = if let Some(l) = lines.next() {
+            l.split_once('#').map_or(l, |(x, _)| x)
+        } else {
+            return Err("unbalanced source".into());
+        };
+        *result.to_mut() += line;
+    }
 }
 
 #[cfg(feature = "self-test")]
@@ -400,6 +445,19 @@ default = [
 # ff
 "#,
             "Parse error while parsing dependency default",
+        );
+    }
+
+    #[test]
+    fn parse_error7() {
+        test_error(
+            r#"
+[features]
+# f
+foo = [ x = { ]
+bar = []
+"#,
+            "Parse error while parsing dependency foo",
         );
     }
 
