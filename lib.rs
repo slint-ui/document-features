@@ -67,10 +67,12 @@ bar = []
 fusion = []
 
 [dependencies]
+document-features = "0.2"
+
 ##! ### Optional dependencies
 
-### Enable this when building the docs
-document-features = { version = "0.2", optional = true }
+### Enable this feature to implement the trait for the types from the genial crate
+genial = { version = "0.2", optional = true }
 
 ### This awesome dependency is specified in its own table
 [dependencies.awesome]
@@ -91,7 +93,7 @@ The following features are experimental
   ⚠️ Can lead to explosions
 
 #### Optional dependencies
-* **`document-features`** —  Enable this when building the docs
+* **`genial`** —  Enable this feature to implement the trait for the types from the genial crate
 
 * **`awesome`** —  This awesome dependency is specified in its own table
 

@@ -13,7 +13,7 @@ Use `## ` and `#! ` comments in your Cargo.toml to document features, for exampl
 
 ```toml
 [dependencies]
-document-features = "0.1"
+document-features = "0.2"
 ## ...
 
 [features]
