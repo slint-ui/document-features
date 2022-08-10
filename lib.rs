@@ -220,8 +220,13 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                 ));
             }
         } else if let Some((dep, rest)) = line.split_once("=") {
-            let rest = get_balanced(rest, &mut lines)
-                .map_err(|e| format!("Parse error while parsing dependency {}: {}", dep, e))?;
+            // Don't call `get_balanced` if we are not in features or a dependency table
+            let rest = if current_table == "features" || current_table.ends_with("dependencies") {
+                get_balanced(rest, &mut lines)
+                    .map_err(|e| format!("Parse error while parsing dependency {}: {}", dep, e))?
+            } else {
+                Cow::from(rest)
+            };
             if current_table == "features" && dep.trim() == "default" {
                 let defaults = rest
                     .trim()
@@ -371,6 +376,37 @@ mod tests {
     fn test_error(toml: &str, expected: &str) {
         let err = process_toml(toml).unwrap_err();
         assert!(err.contains(expected), "{:?} does not contain {:?}", err, expected)
+    }
+
+    #[test]
+    fn only_get_balanced_in_correct_table() {
+        process_toml(
+            r#"
+
+[package.metadata.release]
+pre-release-replacements = [
+  {test=\"\#\# \"},
+]
+[abcd]
+[features]#xyz
+#! abc
+#
+###
+#! def
+#!
+## 123
+## 456
+feat1 = ["plop"]
+#! ghi
+no_doc = []
+##
+feat2 = ["momo"]
+#! klm
+default = ["feat1", "something_else"]
+#! end
+            "#,
+        )
+        .unwrap();
     }
 
     #[test]
