@@ -287,14 +287,14 @@ fn get_balanced<'a>(
     first_line: &'a str,
     lines: &mut impl Iterator<Item = &'a str>,
 ) -> Result<Cow<'a, str>, String> {
-    let mut line = first_line.split_once('#').map_or(first_line, |(x, _)| x);
-    let mut result = Cow::from(line);
+    let mut line = first_line;
+    let mut result = Cow::from("");
 
     let mut in_quote = false;
     let mut level = 0;
     loop {
         let mut last_slash = false;
-        for b in line.as_bytes() {
+        for (idx, b) in line.as_bytes().into_iter().enumerate() {
             if last_slash {
                 last_slash = false
             } else if in_quote {
@@ -309,20 +309,47 @@ fn get_balanced<'a>(
                     b'{' | b'[' => level += 1,
                     b'}' | b']' if level == 0 => return Err("unbalanced source".into()),
                     b'}' | b']' => level -= 1,
+                    b'#' => {
+                        line = &line[..idx];
+                        break;
+                    }
                     _ => (),
                 }
             }
+        }
+        if result.len() == 0 {
+            result = Cow::from(line);
+        } else {
+            *result.to_mut() += line;
         }
         if level == 0 {
             return Ok(result);
         }
         line = if let Some(l) = lines.next() {
-            l.split_once('#').map_or(l, |(x, _)| x)
+            l
         } else {
             return Err("unbalanced source".into());
         };
-        *result.to_mut() += line;
     }
+}
+
+#[test]
+fn test_get_balanced() {
+    assert_eq!(
+        get_balanced(
+            "{",
+            &mut IntoIterator::into_iter(["a", "{ abc[], #ignore", " def }", "}", "xxx"])
+        ),
+        Ok("{a{ abc[],  def }}".into())
+    );
+    assert_eq!(
+        get_balanced("{ foo = \"{#\" } #ignore", &mut IntoIterator::into_iter(["xxx"])),
+        Ok("{ foo = \"{#\" } ".into())
+    );
+    assert_eq!(
+        get_balanced("]", &mut IntoIterator::into_iter(["["])),
+        Err("unbalanced source".into())
+    );
 }
 
 #[cfg(feature = "self-test")]
