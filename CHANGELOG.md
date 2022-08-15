@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.3 - 2022-08-15
+
+* Fix parsing of table with `#` within strings (#10)
+
 ## 0.2.2 - 2022-07-25
 
 * Fix parsing of dependencies or feature spanning multiple lines (#9)
