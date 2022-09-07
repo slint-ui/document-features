@@ -220,6 +220,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                 ));
             }
         } else if let Some((dep, rest)) = line.split_once("=") {
+            let dep = dep.trim().trim_matches('"');
             // Don't call `get_balanced` if we are not in features or a dependency table
             let rest = if current_table == "features" || current_table.ends_with("dependencies") {
                 get_balanced(rest, &mut lines)
@@ -227,7 +228,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
             } else {
                 Cow::from(rest)
             };
-            if current_table == "features" && dep.trim() == "default" {
+            if current_table == "features" && dep == "default" {
                 let defaults = rest
                     .trim()
                     .strip_prefix("[")
@@ -245,10 +246,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                         .and_then(|(_, r)| r.trim().strip_prefix("="))
                         .map_or(false, |r| r.trim().starts_with("true"))
                     {
-                        return Err(format!(
-                            "Dependency {} is not an optional dependency",
-                            dep.trim()
-                        ));
+                        return Err(format!("Dependency {} is not an optional dependency", dep));
                     }
                 } else if current_table != "features" {
                     return Err(format!(
@@ -257,7 +255,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                     ));
                 }
                 features.push((
-                    dep.trim(),
+                    dep,
                     std::mem::take(&mut top_comment),
                     std::mem::take(&mut current_comment),
                 ));
@@ -653,6 +651,25 @@ bar = [
             )
             .unwrap(),
             "* **`dep1`** —  dep1\n\n* **`foo`** —  foo\n\n* **`bar`** *(enabled by default)* —  bar\n\n"
+        );
+    }
+
+    #[test]
+    fn dots_in_feature() {
+        assert_eq!(
+            process_toml(
+                r#"
+[features]
+## This is a test
+"teßt." = []
+default = ["teßt."]
+[dependencies]
+## A dep
+"dep" = { version = "123", optional = true }
+        "#
+            )
+            .unwrap(),
+            "* **`teßt.`** *(enabled by default)* —  This is a test\n\n* **`dep`** —  A dep\n\n"
         );
     }
 }
