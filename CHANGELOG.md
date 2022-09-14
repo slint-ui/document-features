@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.4 - 2022-09-14
 
 * Fix dependencies or features written with quotes
 
