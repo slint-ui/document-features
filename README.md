@@ -13,7 +13,7 @@ Use `## ` and `#! ` comments in your Cargo.toml to document features, for exampl
 
 ```toml
 [package.metadata.docs.rs]
-all-features = true # ensures that `document-features` is enabled when building docs
+features = ["document-features"] # ensures that `document-features` is enabled when building docs
 
 [dependencies]
 document-features = { version = "0.2", optional = true }
