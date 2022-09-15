@@ -3,7 +3,7 @@
 
 [package]
 name = "document-features"
-version = "0.2.1"
+version = "0.2.4"
 authors = ["Slint Developers <info@slint-ui.com>"]
 edition = "2018"
 license = "MIT OR Apache-2.0"

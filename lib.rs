@@ -70,10 +70,12 @@ bar = []
 fusion = []
 
 [dependencies]
+document-features = "0.2"
+
 ##! ### Optional dependencies
 
-### Enable this when building the docs
-document-features = { version = "0.2", optional = true }
+### Enable this feature to implement the trait for the types from the genial crate
+genial = { version = "0.2", optional = true }
 
 ### This awesome dependency is specified in its own table
 [dependencies.awesome]
@@ -94,7 +96,7 @@ The following features are experimental
   ⚠️ Can lead to explosions
 
 #### Optional dependencies
-* **`document-features`** —  Enable this when building the docs
+* **`genial`** —  Enable this feature to implement the trait for the types from the genial crate
 
 * **`awesome`** —  This awesome dependency is specified in its own table
 
@@ -139,6 +141,7 @@ compile_error!(
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
+use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::Write;
 use std::path::Path;
@@ -220,14 +223,22 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                 ));
             }
         } else if let Some((dep, rest)) = line.split_once("=") {
-            if current_table == "features" && dep.trim() == "default" {
+            let dep = dep.trim().trim_matches('"');
+            // Don't call `get_balanced` if we are not in features or a dependency table
+            let rest = if current_table == "features" || current_table.ends_with("dependencies") {
+                get_balanced(rest, &mut lines)
+                    .map_err(|e| format!("Parse error while parsing dependency {}: {}", dep, e))?
+            } else {
+                Cow::from(rest)
+            };
+            if current_table == "features" && dep == "default" {
                 let defaults = rest
                     .trim()
                     .strip_prefix("[")
                     .and_then(|r| r.strip_suffix("]"))
                     .ok_or_else(|| format!("Parse error while parsing dependency {}", dep))?
                     .split(",")
-                    .map(|d| d.trim().trim_matches(|c| c == '"' || c == '\'').trim())
+                    .map(|d| d.trim().trim_matches(|c| c == '"' || c == '\'').trim().to_string())
                     .filter(|d| !d.is_empty());
                 default_features.extend(defaults);
             }
@@ -238,10 +249,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                         .and_then(|(_, r)| r.trim().strip_prefix("="))
                         .map_or(false, |r| r.trim().starts_with("true"))
                     {
-                        return Err(format!(
-                            "Dependency {} is not an optional dependency",
-                            dep.trim()
-                        ));
+                        return Err(format!("Dependency {} is not an optional dependency", dep));
                     }
                 } else if current_table != "features" {
                     return Err(format!(
@@ -250,7 +258,7 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
                     ));
                 }
                 features.push((
-                    dep.trim(),
+                    dep,
                     std::mem::take(&mut top_comment),
                     std::mem::take(&mut current_comment),
                 ));
@@ -274,6 +282,75 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
     }
     result += &top_comment;
     Ok(result)
+}
+
+fn get_balanced<'a>(
+    first_line: &'a str,
+    lines: &mut impl Iterator<Item = &'a str>,
+) -> Result<Cow<'a, str>, String> {
+    let mut line = first_line;
+    let mut result = Cow::from("");
+
+    let mut in_quote = false;
+    let mut level = 0;
+    loop {
+        let mut last_slash = false;
+        for (idx, b) in line.as_bytes().into_iter().enumerate() {
+            if last_slash {
+                last_slash = false
+            } else if in_quote {
+                match b {
+                    b'\\' => last_slash = true,
+                    b'"' | b'\'' => in_quote = false,
+                    _ => (),
+                }
+            } else {
+                match b {
+                    b'"' => in_quote = true,
+                    b'{' | b'[' => level += 1,
+                    b'}' | b']' if level == 0 => return Err("unbalanced source".into()),
+                    b'}' | b']' => level -= 1,
+                    b'#' => {
+                        line = &line[..idx];
+                        break;
+                    }
+                    _ => (),
+                }
+            }
+        }
+        if result.len() == 0 {
+            result = Cow::from(line);
+        } else {
+            *result.to_mut() += line;
+        }
+        if level == 0 {
+            return Ok(result);
+        }
+        line = if let Some(l) = lines.next() {
+            l
+        } else {
+            return Err("unbalanced source".into());
+        };
+    }
+}
+
+#[test]
+fn test_get_balanced() {
+    assert_eq!(
+        get_balanced(
+            "{",
+            &mut IntoIterator::into_iter(["a", "{ abc[], #ignore", " def }", "}", "xxx"])
+        ),
+        Ok("{a{ abc[],  def }}".into())
+    );
+    assert_eq!(
+        get_balanced("{ foo = \"{#\" } #ignore", &mut IntoIterator::into_iter(["xxx"])),
+        Ok("{ foo = \"{#\" } ".into())
+    );
+    assert_eq!(
+        get_balanced("]", &mut IntoIterator::into_iter(["["])),
+        Err("unbalanced source".into())
+    );
 }
 
 #[cfg(feature = "self-test")]
@@ -327,6 +404,37 @@ mod tests {
     fn test_error(toml: &str, expected: &str) {
         let err = process_toml(toml).unwrap_err();
         assert!(err.contains(expected), "{:?} does not contain {:?}", err, expected)
+    }
+
+    #[test]
+    fn only_get_balanced_in_correct_table() {
+        process_toml(
+            r#"
+
+[package.metadata.release]
+pre-release-replacements = [
+  {test=\"\#\# \"},
+]
+[abcd]
+[features]#xyz
+#! abc
+#
+###
+#! def
+#!
+## 123
+## 456
+feat1 = ["plop"]
+#! ghi
+no_doc = []
+##
+feat2 = ["momo"]
+#! klm
+default = ["feat1", "something_else"]
+#! end
+            "#,
+        )
+        .unwrap();
     }
 
     #[test]
@@ -403,6 +511,19 @@ default = [
 # ff
 "#,
             "Parse error while parsing dependency default",
+        );
+    }
+
+    #[test]
+    fn parse_error7() {
+        test_error(
+            r#"
+[features]
+# f
+foo = [ x = { ]
+bar = []
+"#,
+            "Parse error while parsing dependency foo",
         );
     }
 
@@ -501,6 +622,57 @@ optional = true
             )
             .unwrap(),
             " top\n* **`dep1`** —  dep1\n\n yo\n* **`dep3`** —  dep3\n\n"
+        );
+    }
+
+    #[test]
+    fn multi_lines() {
+        assert_eq!(
+            process_toml(
+                r#"
+[dev-dependencies]
+## dep1
+dep1 = {
+    version="1.2-}",
+    optional=true
+}
+[features]
+default = [
+    "goo",
+    "\"]",
+    "bar",
+]
+## foo
+foo = [
+   "bar"
+]
+## bar
+bar = [
+
+]
+        "#
+            )
+            .unwrap(),
+            "* **`dep1`** —  dep1\n\n* **`foo`** —  foo\n\n* **`bar`** *(enabled by default)* —  bar\n\n"
+        );
+    }
+
+    #[test]
+    fn dots_in_feature() {
+        assert_eq!(
+            process_toml(
+                r#"
+[features]
+## This is a test
+"teßt." = []
+default = ["teßt."]
+[dependencies]
+## A dep
+"dep" = { version = "123", optional = true }
+        "#
+            )
+            .unwrap(),
+            "* **`teßt.`** *(enabled by default)* —  This is a test\n\n* **`dep`** —  A dep\n\n"
         );
     }
 }

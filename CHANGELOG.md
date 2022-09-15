@@ -1,6 +1,18 @@
 # Changelog
 
-## 0.2.1 - 2021-02-12
+## 0.2.4 - 2022-09-14
+
+* Fix dependencies or features written with quotes
+
+## 0.2.3 - 2022-08-15
+
+* Fix parsing of table with `#` within strings (#10)
+
+## 0.2.2 - 2022-07-25
+
+* Fix parsing of dependencies or feature spanning multiple lines (#9)
+
+## 0.2.1 - 2022-02-12
 
 * Fix indentation of multi-lines feature comments (#5)
 
