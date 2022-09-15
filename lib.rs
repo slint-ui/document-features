@@ -46,7 +46,7 @@ in where they occur. Use them to group features, for example.
 #![doc = self_test!(/**
 [package]
 name = "..."
-# ...
+## ...
 
 [package.metadata.docs.rs]
 all-features = true # ensures that `document-features` is enabled when building docs
