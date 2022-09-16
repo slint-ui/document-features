@@ -24,15 +24,15 @@ Basic example:
 ## Customization
 
 In addition, you can customize the formatting of the features in the generated documentation by setting
-the key `feature_label` to a given format string. This format string must be either a string literal
-`"..."` or a raw string literal `r"..."` not delimited by number sign charaters `U+0023` (`#`) (strings like `r#"..."#`
-are not supported). Every occurrence of `{feature}` inside the format string will be substituted with the
-name of the feature.
+the key `feature_label` to a given format string. This format string must be either
+a [string literal](https://doc.rust-lang.org/reference/tokens.html#string-literals) or
+a [raw string literal](https://doc.rust-lang.org/reference/tokens.html#raw-string-literals).
+Every occurrence of `{feature}` inside the format string will be substituted with the name of the feature.
 
 For instance, to emulate the HTML formatting used by `rustdoc` one can use the following:
 
 ```rust
-#![doc = document_features::document_features!(feature_label = "<span class=\"stab portability\"><code>{feature}</code></span>")]
+#![doc = document_features::document_features!(feature_label = r#"<span class="stab portability"><code>{feature}</code></span>"#)]
 ```
 
 The default formatting is equivalent to:
@@ -124,7 +124,7 @@ The following features are experimental
 With the `rustdoc` styling
 
 ```rust
-#![doc = document_features::document_features!(feature_label = "<span class=\"stab portability\"><code>{feature}</code></span>")]
+#![doc = document_features::document_features!(feature_label = r#"<span class="stab portability"><code>{feature}</code></span>"#)]
 ```
 
 the generated documentation would look like the following:
@@ -222,7 +222,7 @@ fn compile_error(msg: &str, tt: Option<TokenTree>) -> TokenStream {
 }
 
 fn parse_feature_label(input: TokenStream) -> Result<String, TokenStream> {
-    let mut token_trees = input.into_iter();
+    let mut token_trees = input.into_iter().fuse();
 
     // parse the key, ensuring that it is the identifier `feature_label`
     match token_trees.next() {
@@ -237,18 +237,17 @@ fn parse_feature_label(input: TokenStream) -> Result<String, TokenStream> {
     }
 
     // parse the value, ensuring that it is a string literal containing the substring `"{feature}"`
+    let feature_label;
     if let Some(TokenTree::Literal(lit)) = token_trees.next() {
         let string = lit.to_string();
-        if (string.starts_with('"') || string.starts_with("r\""))
-            && string.ends_with('"')
-            && string.contains("{feature}")
-        {
-            Ok(string)
+        let trimmed: &str = string.strip_prefix('r').map_or(&string, |s| s.trim_matches('#'));
+        if trimmed.starts_with('"') && trimmed.ends_with('"') && string.contains("{feature}") {
+            feature_label = string;
         } else {
-            Err(compile_error(
+            return Err(compile_error(
                 "expected a string literal containing the substring \"{feature}\"",
                 Some(TokenTree::Literal(lit)),
-            ))
+            ));
         }
     } else {
         return Err(compile_error(
@@ -256,6 +255,13 @@ fn parse_feature_label(input: TokenStream) -> Result<String, TokenStream> {
             None,
         ));
     }
+
+    // ensure there is nothing left after the format string
+    if let tt @ Some(_) = token_trees.next() {
+        return Err(compile_error("unexpected token after the format string", tt));
+    }
+
+    Ok(feature_label)
 }
 
 /// Produce a literal string containing documentation extracted from Cargo.toml
@@ -540,13 +546,12 @@ macro_rules! self_test {
 // For a more principled way of testing compilation error, maybe investigate <https://docs.rs/trybuild>.
 //
 /// ```rust
-/// #![doc = document_features::document_features!(feature_label = "<span>{feature}</span>")]
-/// ```
-/// ```rust
+/// #![doc = document_features::document_features!()]
+/// #![doc = document_features::document_features!(feature_label = "**`{feature}`**")]
+/// #![doc = document_features::document_features!(feature_label = r"**`{feature}`**")]
+/// #![doc = document_features::document_features!(feature_label = r#"**`{feature}`**"#)]
 /// #![doc = document_features::document_features!(feature_label = "<span class=\"stab portability\"><code>{feature}</code></span>")]
-/// ```
-/// ```rust
-/// #![doc = document_features::document_features!(feature_label = r"{feature}")]
+/// #![doc = document_features::document_features!(feature_label = r#"<span class="stab portability"><code>{feature}</code></span>"#)]
 /// ```
 /// ```compile_fail
 /// #![doc = document_features::document_features!(feature_label > "<span>{feature}</span>")]
@@ -555,10 +560,13 @@ macro_rules! self_test {
 /// #![doc = document_features::document_features!(label = "<span>{feature}</span>")]
 /// ```
 /// ```compile_fail
-/// #![doc = document_features::document_features!(feature_label = "")]
+/// #![doc = document_features::document_features!(feature_label = "{feat}")]
 /// ```
 /// ```compile_fail
-/// #![doc = document_features::document_features!(feature_label = r#"{feature}"#)]
+/// #![doc = document_features::document_features!(feature_label = 3.14)]
+/// ```
+/// ```compile_fail
+/// #![doc = document_features::document_features!(feature_label = "**`{feature}`**" extra)]
 /// ```
 #[cfg(doc)]
 struct FeatureLabelCompilationTest;
