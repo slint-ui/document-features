@@ -21,6 +21,8 @@ Basic example:
 // rest of the crate goes here.
 ```
 
+## Customization
+
 In addition, you can customize the formatting of the features in the generated documentation by setting
 the key `feature_label` to a given format string. This format string must be either a string literal
 `"..."` or a raw string literal `r"..."` not delimited by number sign charaters `U+0023` (`#`) (strings like `r#"..."#`
