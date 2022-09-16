@@ -148,15 +148,49 @@ fn error(e: &str) -> TokenStream {
     TokenStream::from_str(&format!("::core::compile_error!{{\"{}\"}}", e.escape_default())).unwrap()
 }
 
+fn parse_feature_label(input: syn::parse::ParseStream) -> syn::parse::Result<String> {
+    // parse the key, which must be an identifier
+    let ident: syn::Ident = input.parse()?;
+
+    // ensure that the identifier is `feature_label`
+    if ident != "feature_label" {
+        // Trigger an error not on the current position of the stream,
+        // but on the position of the unexpected identifier.
+        return Err(syn::Error::new(ident.span(), "expected `feature_name`"));
+    }
+
+    // parse a single equal sign `=`
+    input.parse::<syn::Token![=]>()?;
+
+    // parse the value, which must be a string literal
+    let literal: syn::LitStr = input.parse()?;
+    // get the string itself
+    let value = literal.value();
+
+    // ensure that the string contains the substring `"{feature}"`
+    if value.find("{feature}").is_none() {
+        return Err(syn::Error::new(
+            literal.span(),
+            "expected a string literal which contains the substring \"{feature}\"",
+        ));
+    }
+    Ok(value)
+}
+
 /// Produce a literal string containing documentation extracted from Cargo.toml
 ///
 /// See the [crate] documentation for details
 #[proc_macro]
-pub fn document_features(_: TokenStream) -> TokenStream {
-    document_features_impl().unwrap_or_else(std::convert::identity)
+pub fn document_features(tokens: TokenStream) -> TokenStream {
+    if tokens.is_empty() {
+        document_features_impl(None).unwrap_or_else(std::convert::identity)
+    } else {
+        let feature_label = syn::parse_macro_input!(tokens with parse_feature_label);
+        document_features_impl(Some(&feature_label)).unwrap_or_else(std::convert::identity)
+    }
 }
 
-fn document_features_impl() -> Result<TokenStream, TokenStream> {
+fn document_features_impl(feature_label: Option<&str>) -> Result<TokenStream, TokenStream> {
     let path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut cargo_toml = std::fs::read_to_string(Path::new(&path).join("Cargo.toml"))
         .map_err(|e| error(&format!("Can't open Cargo.toml: {:?}", e)))?;
@@ -171,11 +205,11 @@ fn document_features_impl() -> Result<TokenStream, TokenStream> {
         }
     }
 
-    let result = process_toml(&cargo_toml).map_err(|e| error(&e))?;
+    let result = process_toml(&cargo_toml, feature_label).map_err(|e| error(&e))?;
     Ok(std::iter::once(proc_macro::TokenTree::from(proc_macro::Literal::string(&result))).collect())
 }
 
-fn process_toml(cargo_toml: &str) -> Result<String, String> {
+fn process_toml(cargo_toml: &str, feature_label: Option<&str>) -> Result<String, String> {
     // Get all lines between the "[features]" and the next block
     let mut lines = cargo_toml
         .lines()
@@ -272,9 +306,27 @@ fn process_toml(cargo_toml: &str) -> Result<String, String> {
     for (f, top, comment) in features {
         let default = if default_features.contains(f) { " *(enabled by default)*" } else { "" };
         if !comment.trim().is_empty() {
-            writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment).unwrap();
+            if let Some(feature_label) = feature_label {
+                writeln!(
+                    result,
+                    "{top}* {label}{default} —{comment}",
+                    label = feature_label.replace("{feature}", f)
+                )
+                .unwrap();
+            } else {
+                writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment).unwrap();
+            }
         } else {
-            writeln!(result, "{}* **`{}`**{}\n", top, f, default).unwrap();
+            if let Some(feature_label) = feature_label {
+                writeln!(
+                    result,
+                    "{top}* {label}{default}\n",
+                    label = feature_label.replace("{feature}", f)
+                )
+                .unwrap();
+            } else {
+                writeln!(result, "{}* **`{}`**{}\n", top, f, default).unwrap();
+            }
         }
     }
     result += &top_comment;
@@ -393,13 +445,35 @@ macro_rules! self_test {
     };
 }
 
+// The following struct is inserted only during generation of the documentation in order to exploit doc-tests.
+// These doc-tests are used to check that invalid arguments to the `document_features!` macro cause a compile time error.
+// For a more principled way of testing compilation error, maybe investigate <https://docs.rs/trybuild>.
+//
+/// ```rust
+/// #![doc = document_features::document_features!(feature_label = "<span>{feature}</span>")]
+/// ```
+/// ```rust
+/// #![doc = document_features::document_features!(feature_label = "<span class=\"stab portability\"><code>{feature}</code></span>")]
+/// ```
+/// ```compile_fail
+/// #![doc = document_features::document_features!(feature_label > "<span>{feature}</span>")]
+/// ```
+/// ```compile_fail
+/// #![doc = document_features::document_features!(label = "<span>{feature}</span>")]
+/// ```
+/// ```compile_fail
+/// #![doc = document_features::document_features!(feature_label = "")]
+/// ```
+#[cfg(doc)]
+struct FeatureLabelCompilationTest;
+
 #[cfg(test)]
 mod tests {
     use super::process_toml;
 
     #[track_caller]
     fn test_error(toml: &str, expected: &str) {
-        let err = process_toml(toml).unwrap_err();
+        let err = process_toml(toml, None).unwrap_err();
         assert!(err.contains(expected), "{:?} does not contain {:?}", err, expected)
     }
 
@@ -430,6 +504,7 @@ feat2 = ["momo"]
 default = ["feat1", "something_else"]
 #! end
             "#,
+            None,
         )
         .unwrap();
     }
@@ -573,9 +648,7 @@ foo = { version = "1.2" }
 
     #[test]
     fn basic() {
-        assert_eq!(
-            process_toml(
-                r#"
+        let toml = r#"
 [abcd]
 [features]#xyz
 #! abc
@@ -593,18 +666,26 @@ feat2 = ["momo"]
 #! klm
 default = ["feat1", "something_else"]
 #! end
-        "#
-            )
-            .unwrap(),
+        "#;
+        let parsed = process_toml(toml, None).unwrap();
+        assert_eq!(
+            parsed,
             " abc\n def\n\n* **`feat1`** *(enabled by default)* —  123\n  456\n\n ghi\n* **`feat2`**\n\n klm\n end\n"
+        );
+        let parsed = process_toml(
+            toml,
+            Some("<span class=\"stab portability\"><code>{feature}</code></span>"),
+        )
+        .unwrap();
+        assert_eq!(
+            parsed,
+            " abc\n def\n\n* <span class=\"stab portability\"><code>feat1</code></span> *(enabled by default)* —  123\n  456\n\n ghi\n* <span class=\"stab portability\"><code>feat2</code></span>\n\n klm\n end\n"
         );
     }
 
     #[test]
     fn dependencies() {
-        assert_eq!(
-            process_toml(
-                r#"
+        let toml = r#"
 #! top
 [dev-dependencies] #yo
 ## dep1
@@ -615,18 +696,20 @@ dep2 = "1.3"
 [target.'cfg(unix)'.build-dependencies.dep3]
 version = "42"
 optional = true
-        "#
-            )
-            .unwrap(),
-            " top\n* **`dep1`** —  dep1\n\n yo\n* **`dep3`** —  dep3\n\n"
-        );
+        "#;
+        let parsed = process_toml(toml, None).unwrap();
+        assert_eq!(parsed, " top\n* **`dep1`** —  dep1\n\n yo\n* **`dep3`** —  dep3\n\n");
+        let parsed = process_toml(
+            toml,
+            Some("<span class=\"stab portability\"><code>{feature}</code></span>"),
+        )
+        .unwrap();
+        assert_eq!(parsed, " top\n* <span class=\"stab portability\"><code>dep1</code></span> —  dep1\n\n yo\n* <span class=\"stab portability\"><code>dep3</code></span> —  dep3\n\n");
     }
 
     #[test]
     fn multi_lines() {
-        assert_eq!(
-            process_toml(
-                r#"
+        let toml = r#"
 [dev-dependencies]
 ## dep1
 dep1 = {
@@ -647,18 +730,26 @@ foo = [
 bar = [
 
 ]
-        "#
-            )
-            .unwrap(),
+        "#;
+        let parsed = process_toml(toml, None).unwrap();
+        assert_eq!(
+            parsed,
             "* **`dep1`** —  dep1\n\n* **`foo`** —  foo\n\n* **`bar`** *(enabled by default)* —  bar\n\n"
+        );
+        let parsed = process_toml(
+            toml,
+            Some("<span class=\"stab portability\"><code>{feature}</code></span>"),
+        )
+        .unwrap();
+        assert_eq!(
+            parsed,
+            "* <span class=\"stab portability\"><code>dep1</code></span> —  dep1\n\n* <span class=\"stab portability\"><code>foo</code></span> —  foo\n\n* <span class=\"stab portability\"><code>bar</code></span> *(enabled by default)* —  bar\n\n"
         );
     }
 
     #[test]
     fn dots_in_feature() {
-        assert_eq!(
-            process_toml(
-                r#"
+        let toml = r#"
 [features]
 ## This is a test
 "teßt." = []
@@ -666,10 +757,20 @@ default = ["teßt."]
 [dependencies]
 ## A dep
 "dep" = { version = "123", optional = true }
-        "#
-            )
-            .unwrap(),
+        "#;
+        let parsed = process_toml(toml, None).unwrap();
+        assert_eq!(
+            parsed,
             "* **`teßt.`** *(enabled by default)* —  This is a test\n\n* **`dep`** —  A dep\n\n"
+        );
+        let parsed = process_toml(
+            toml,
+            Some("<span class=\"stab portability\"><code>{feature}</code></span>"),
+        )
+        .unwrap();
+        assert_eq!(
+            parsed,
+            "* <span class=\"stab portability\"><code>teßt.</code></span> *(enabled by default)* —  This is a test\n\n* <span class=\"stab portability\"><code>dep</code></span> —  A dep\n\n"
         );
     }
 }
