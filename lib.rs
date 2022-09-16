@@ -21,6 +21,24 @@ Basic example:
 // rest of the crate goes here.
 ```
 
+In addition, you can customize the formatting of the features in the generated documentation by setting
+the key `feature_label` to a given format string. This format string must be either a string literal
+`"..."` or a raw string literal `r"..."` not delimited by number sign charaters `U+0023` (`#`) (strings like `r#"..."#`
+are not supported). Every occurrence of `{feature}` inside the format string will be substituted with the
+name of the feature.
+
+For instance, to emulate the HTML formatting used by `rustdoc` one can use the following:
+
+```rust
+#![doc = document_features::document_features!(feature_label = "<span class=\"stab portability\"><code>{feature}</code></span>")]
+```
+
+The default formatting is equivalent to:
+
+```rust
+#![doc = document_features::document_features!(feature_label = "**`{feature}`**")]
+```
+
 ## Documentation format:
 
 The documentation of your crate features goes into `Cargo.toml`, where they are defined.
@@ -100,6 +118,34 @@ The following features are experimental
 */
 )]
 /*!
+
+With the `rustdoc` styling
+
+```rust
+#![doc = document_features::document_features!(feature_label = "<span class=\"stab portability\"><code>{feature}</code></span>")]
+```
+
+the generated documentation would look like the following:
+
+<table><tr><th>Preview</th></tr><tr><td>
+This comments goes on top
+
+* <span class="stab portability"><code>foo</code></span> *(enabled by default)* —  The foo feature enables the `foo` functions
+
+* <span class="stab portability"><code>bar</code></span> —  The bar feature enables the bar module
+
+#### Experimental features
+The following features are experimental
+* <span class="stab portability"><code>fusion</code></span> —  Enable the fusion reactor
+
+  ⚠️ Can lead to explosions
+
+#### Optional dependencies
+* <span class="stab portability"><code>genial</code></span> —  Enable this feature to implement the trait for the types from the genial crate
+
+* <span class="stab portability"><code>awesome</code></span> —  This awesome dependency is specified in its own table
+</td></tr></table>
+
 
 ## Compatibility
 
