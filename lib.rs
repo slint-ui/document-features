@@ -346,8 +346,11 @@ fn process_toml(cargo_toml: &str, feature_label: Option<&str>) -> Result<String,
             if let Some(feature_label) = feature_label {
                 writeln!(
                     result,
-                    "{top}* {label}{default} —{comment}",
-                    label = feature_label.replace("{feature}", f)
+                    "{}* {}{} —{}",
+                    top,
+                    feature_label.replace("{feature}", f),
+                    default,
+                    comment
                 )
                 .unwrap();
             } else {
@@ -357,8 +360,10 @@ fn process_toml(cargo_toml: &str, feature_label: Option<&str>) -> Result<String,
             if let Some(feature_label) = feature_label {
                 writeln!(
                     result,
-                    "{top}* {label}{default}\n",
-                    label = feature_label.replace("{feature}", f)
+                    "{}* {}{}\n",
+                    top,
+                    feature_label.replace("{feature}", f),
+                    default,
                 )
                 .unwrap();
             } else {
