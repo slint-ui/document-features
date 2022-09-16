@@ -22,3 +22,6 @@ default = []
 
 ## Internal feature used only for the tests, don't enable
 self-test = []
+
+[dependencies]
+syn = { version = "1.0.99", default-features = false, features = ["parsing", "proc-macro"] }
