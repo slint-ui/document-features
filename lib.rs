@@ -495,7 +495,7 @@ fn test_get_balanced() {
 #[doc(hidden)]
 /// Helper macro for the tests. Do not use
 pub fn self_test_helper(input: TokenStream) -> TokenStream {
-    process_toml((&input).to_string().trim_matches(|c| c == '"' || c == '#')).map_or_else(
+    process_toml((&input).to_string().trim_matches(|c| c == '"' || c == '#'), None).map_or_else(
         |e| error(&e),
         |r| std::iter::once(proc_macro::TokenTree::from(proc_macro::Literal::string(&r))).collect(),
     )
