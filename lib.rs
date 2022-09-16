@@ -137,7 +137,7 @@ compile_error!(
 
 extern crate proc_macro;
 
-use proc_macro::TokenStream;
+use proc_macro::{TokenStream, TokenTree};
 use std::borrow::Cow;
 use std::collections::HashSet;
 use std::fmt::Write;
@@ -148,33 +148,66 @@ fn error(e: &str) -> TokenStream {
     TokenStream::from_str(&format!("::core::compile_error!{{\"{}\"}}", e.escape_default())).unwrap()
 }
 
-fn parse_feature_label(input: syn::parse::ParseStream) -> syn::parse::Result<String> {
-    // parse the key, which must be an identifier
-    let ident: syn::Ident = input.parse()?;
+fn compile_error(msg: &str, tt: Option<TokenTree>) -> TokenStream {
+    let span = tt.as_ref().map_or_else(proc_macro::Span::call_site, TokenTree::span);
+    use proc_macro::{Delimiter, Group, Ident, Literal, Punct, Spacing};
+    use std::iter::FromIterator;
+    TokenStream::from_iter(vec![
+        TokenTree::Ident(Ident::new("compile_error", span)),
+        TokenTree::Punct({
+            let mut punct = Punct::new('!', Spacing::Alone);
+            punct.set_span(span);
+            punct
+        }),
+        TokenTree::Group({
+            let mut group = Group::new(Delimiter::Brace, {
+                TokenStream::from_iter([TokenTree::Literal({
+                    let mut string = Literal::string(msg);
+                    string.set_span(span);
+                    string
+                })])
+            });
+            group.set_span(span);
+            group
+        }),
+    ])
+}
 
-    // ensure that the identifier is `feature_label`
-    if ident != "feature_label" {
-        // Trigger an error not on the current position of the stream,
-        // but on the position of the unexpected identifier.
-        return Err(syn::Error::new(ident.span(), "expected `feature_name`"));
+fn parse_feature_label(input: TokenStream) -> Result<String, TokenStream> {
+    let mut token_trees = input.into_iter();
+
+    // parse the key, ensuring that it is the identifier `feature_label`
+    match token_trees.next() {
+        Some(TokenTree::Ident(ident)) if ident.to_string() == "feature_label" => (),
+        tt => return Err(compile_error("expected `feature_label`", tt)),
     }
 
     // parse a single equal sign `=`
-    input.parse::<syn::Token![=]>()?;
+    match token_trees.next() {
+        Some(TokenTree::Punct(p)) if p.as_char() == '=' => (),
+        tt => return Err(compile_error("expected `=`", tt)),
+    }
 
-    // parse the value, which must be a string literal
-    let literal: syn::LitStr = input.parse()?;
-    // get the string itself
-    let value = literal.value();
-
-    // ensure that the string contains the substring `"{feature}"`
-    if value.find("{feature}").is_none() {
-        return Err(syn::Error::new(
-            literal.span(),
-            "expected a string literal which contains the substring \"{feature}\"",
+    // parse the value, ensuring that it is a string literal containing the substring `"{feature}"`
+    if let Some(TokenTree::Literal(lit)) = token_trees.next() {
+        let string = lit.to_string();
+        if (string.starts_with('"') || string.starts_with("r\""))
+            && string.ends_with('"')
+            && string.contains("{feature}")
+        {
+            Ok(string)
+        } else {
+            Err(compile_error(
+                "expected a string literal containing the substring \"{feature}\"",
+                Some(TokenTree::Literal(lit)),
+            ))
+        }
+    } else {
+        return Err(compile_error(
+            "expected a string literal containing the substring \"{feature}\"",
+            None,
         ));
     }
-    Ok(value)
 }
 
 /// Produce a literal string containing documentation extracted from Cargo.toml
@@ -185,8 +218,12 @@ pub fn document_features(tokens: TokenStream) -> TokenStream {
     if tokens.is_empty() {
         document_features_impl(None).unwrap_or_else(std::convert::identity)
     } else {
-        let feature_label = syn::parse_macro_input!(tokens with parse_feature_label);
-        document_features_impl(Some(&feature_label)).unwrap_or_else(std::convert::identity)
+        match parse_feature_label(tokens) {
+            Ok(feature_label) => {
+                document_features_impl(Some(&feature_label)).unwrap_or_else(std::convert::identity)
+            }
+            Err(e) => e,
+        }
     }
 }
 
@@ -455,6 +492,9 @@ macro_rules! self_test {
 /// ```rust
 /// #![doc = document_features::document_features!(feature_label = "<span class=\"stab portability\"><code>{feature}</code></span>")]
 /// ```
+/// ```rust
+/// #![doc = document_features::document_features!(feature_label = r"{feature}")]
+/// ```
 /// ```compile_fail
 /// #![doc = document_features::document_features!(feature_label > "<span>{feature}</span>")]
 /// ```
@@ -463,6 +503,9 @@ macro_rules! self_test {
 /// ```
 /// ```compile_fail
 /// #![doc = document_features::document_features!(feature_label = "")]
+/// ```
+/// ```compile_fail
+/// #![doc = document_features::document_features!(feature_label = r#"{feature}"#)]
 /// ```
 #[cfg(doc)]
 struct FeatureLabelCompilationTest;
