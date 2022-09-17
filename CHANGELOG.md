@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.5 - 2022-09-17
 
 * Allow customization of the output with the `feature_label=` parameter
 
