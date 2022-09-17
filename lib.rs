@@ -160,6 +160,7 @@ extern crate proc_macro;
 use proc_macro::{TokenStream, TokenTree};
 use std::borrow::Cow;
 use std::collections::HashSet;
+use std::convert::TryFrom;
 use std::fmt::Write;
 use std::path::Path;
 use std::str::FromStr;
@@ -216,16 +217,17 @@ fn parse_args(input: TokenStream) -> Result<Args, TokenStream> {
 
     // parse the value, ensuring that it is a string literal containing the substring `"{feature}"`
     let feature_label;
-    if let Some(TokenTree::Literal(lit)) = token_trees.next() {
-        let string = lit.to_string();
-        let trimmed: &str = string.strip_prefix('r').map_or(&string, |s| s.trim_matches('#'));
-        if trimmed.starts_with('"') && trimmed.ends_with('"') && string.contains("{feature}") {
-            feature_label = string;
-        } else {
-            return Err(compile_error(
-                "expected a string literal containing the substring \"{feature}\"",
-                Some(TokenTree::Literal(lit)),
-            ));
+    if let Some(tt) = token_trees.next() {
+        match litrs::StringLit::<String>::try_from(&tt) {
+            Ok(string_lit) if string_lit.value().contains("{feature}") => {
+                feature_label = string_lit.value().to_string()
+            }
+            _ => {
+                return Err(compile_error(
+                    "expected a string literal containing the substring \"{feature}\"",
+                    Some(tt),
+                ))
+            }
         }
     } else {
         return Err(compile_error(
@@ -539,6 +541,9 @@ macro_rules! self_test {
 /// ```
 /// ```compile_fail
 /// #![doc = document_features::document_features!(feature_label = 3.14)]
+/// ```
+/// ```compile_fail
+/// #![doc = document_features::document_features!(feature_label = )]
 /// ```
 /// ```compile_fail
 /// #![doc = document_features::document_features!(feature_label = "**`{feature}`**" extra)]
