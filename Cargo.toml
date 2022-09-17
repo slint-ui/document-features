@@ -24,4 +24,4 @@ default = []
 self-test = []
 
 [dependencies]
-litrs = "0.2.3"
+litrs = { version = "0.2.3", default-features = false }
