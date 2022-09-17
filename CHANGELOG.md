@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+
+* Allow customization of the output with the `feature_label=` parameter
+
 ## 0.2.4 - 2022-09-14
 
 * Fix dependencies or features written with quotes
