@@ -193,11 +193,17 @@ fn compile_error(msg: &str, tt: Option<TokenTree>) -> TokenStream {
     ])
 }
 
-fn parse_feature_label(input: TokenStream) -> Result<String, TokenStream> {
+#[derive(Default)]
+struct Args {
+    feature_label: Option<String>,
+}
+
+fn parse_args(input: TokenStream) -> Result<Args, TokenStream> {
     let mut token_trees = input.into_iter().fuse();
 
     // parse the key, ensuring that it is the identifier `feature_label`
     match token_trees.next() {
+        None => return Ok(Args::default()),
         Some(TokenTree::Ident(ident)) if ident.to_string() == "feature_label" => (),
         tt => return Err(compile_error("expected `feature_label`", tt)),
     }
@@ -233,7 +239,7 @@ fn parse_feature_label(input: TokenStream) -> Result<String, TokenStream> {
         return Err(compile_error("unexpected token after the format string", tt));
     }
 
-    Ok(feature_label)
+    Ok(Args { feature_label: Some(feature_label) })
 }
 
 /// Produce a literal string containing documentation extracted from Cargo.toml
@@ -241,19 +247,12 @@ fn parse_feature_label(input: TokenStream) -> Result<String, TokenStream> {
 /// See the [crate] documentation for details
 #[proc_macro]
 pub fn document_features(tokens: TokenStream) -> TokenStream {
-    if tokens.is_empty() {
-        document_features_impl(None).unwrap_or_else(std::convert::identity)
-    } else {
-        match parse_feature_label(tokens) {
-            Ok(feature_label) => {
-                document_features_impl(Some(&feature_label)).unwrap_or_else(std::convert::identity)
-            }
-            Err(e) => e,
-        }
-    }
+    parse_args(tokens)
+        .and_then(|args| document_features_impl(&args))
+        .unwrap_or_else(std::convert::identity)
 }
 
-fn document_features_impl(feature_label: Option<&str>) -> Result<TokenStream, TokenStream> {
+fn document_features_impl(args: &Args) -> Result<TokenStream, TokenStream> {
     let path = std::env::var("CARGO_MANIFEST_DIR").unwrap();
     let mut cargo_toml = std::fs::read_to_string(Path::new(&path).join("Cargo.toml"))
         .map_err(|e| error(&format!("Can't open Cargo.toml: {:?}", e)))?;
@@ -268,11 +267,11 @@ fn document_features_impl(feature_label: Option<&str>) -> Result<TokenStream, To
         }
     }
 
-    let result = process_toml(&cargo_toml, feature_label).map_err(|e| error(&e))?;
+    let result = process_toml(&cargo_toml, args).map_err(|e| error(&e))?;
     Ok(std::iter::once(proc_macro::TokenTree::from(proc_macro::Literal::string(&result))).collect())
 }
 
-fn process_toml(cargo_toml: &str, feature_label: Option<&str>) -> Result<String, String> {
+fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
     // Get all lines between the "[features]" and the next block
     let mut lines = cargo_toml
         .lines()
@@ -369,7 +368,7 @@ fn process_toml(cargo_toml: &str, feature_label: Option<&str>) -> Result<String,
     for (f, top, comment) in features {
         let default = if default_features.contains(f) { " *(enabled by default)*" } else { "" };
         if !comment.trim().is_empty() {
-            if let Some(feature_label) = feature_label {
+            if let Some(feature_label) = &args.feature_label {
                 writeln!(
                     result,
                     "{}* {}{} —{}",
@@ -383,7 +382,7 @@ fn process_toml(cargo_toml: &str, feature_label: Option<&str>) -> Result<String,
                 writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment).unwrap();
             }
         } else {
-            if let Some(feature_label) = feature_label {
+            if let Some(feature_label) = &args.feature_label {
                 writeln!(
                     result,
                     "{}* {}{}\n",
@@ -475,10 +474,14 @@ fn test_get_balanced() {
 #[doc(hidden)]
 /// Helper macro for the tests. Do not use
 pub fn self_test_helper(input: TokenStream) -> TokenStream {
-    process_toml((&input).to_string().trim_matches(|c| c == '"' || c == '#'), None).map_or_else(
-        |e| error(&e),
-        |r| std::iter::once(proc_macro::TokenTree::from(proc_macro::Literal::string(&r))).collect(),
-    )
+    process_toml((&input).to_string().trim_matches(|c| c == '"' || c == '#'), &Args::default())
+        .map_or_else(
+            |e| error(&e),
+            |r| {
+                std::iter::once(proc_macro::TokenTree::from(proc_macro::Literal::string(&r)))
+                    .collect()
+            },
+        )
 }
 
 #[cfg(feature = "self-test")]
@@ -545,11 +548,11 @@ struct FeatureLabelCompilationTest;
 
 #[cfg(test)]
 mod tests {
-    use super::process_toml;
+    use super::{process_toml, Args};
 
     #[track_caller]
     fn test_error(toml: &str, expected: &str) {
-        let err = process_toml(toml, None).unwrap_err();
+        let err = process_toml(toml, &Args::default()).unwrap_err();
         assert!(err.contains(expected), "{:?} does not contain {:?}", err, expected)
     }
 
@@ -580,7 +583,7 @@ feat2 = ["momo"]
 default = ["feat1", "something_else"]
 #! end
             "#,
-            None,
+            &Args::default(),
         )
         .unwrap();
     }
@@ -743,14 +746,18 @@ feat2 = ["momo"]
 default = ["feat1", "something_else"]
 #! end
         "#;
-        let parsed = process_toml(toml, None).unwrap();
+        let parsed = process_toml(toml, &Args::default()).unwrap();
         assert_eq!(
             parsed,
             " abc\n def\n\n* **`feat1`** *(enabled by default)* —  123\n  456\n\n ghi\n* **`feat2`**\n\n klm\n end\n"
         );
         let parsed = process_toml(
             toml,
-            Some("<span class=\"stab portability\"><code>{feature}</code></span>"),
+            &Args {
+                feature_label: Some(
+                    "<span class=\"stab portability\"><code>{feature}</code></span>".into(),
+                ),
+            },
         )
         .unwrap();
         assert_eq!(
@@ -773,11 +780,15 @@ dep2 = "1.3"
 version = "42"
 optional = true
         "#;
-        let parsed = process_toml(toml, None).unwrap();
+        let parsed = process_toml(toml, &Args::default()).unwrap();
         assert_eq!(parsed, " top\n* **`dep1`** —  dep1\n\n yo\n* **`dep3`** —  dep3\n\n");
         let parsed = process_toml(
             toml,
-            Some("<span class=\"stab portability\"><code>{feature}</code></span>"),
+            &Args {
+                feature_label: Some(
+                    "<span class=\"stab portability\"><code>{feature}</code></span>".into(),
+                ),
+            },
         )
         .unwrap();
         assert_eq!(parsed, " top\n* <span class=\"stab portability\"><code>dep1</code></span> —  dep1\n\n yo\n* <span class=\"stab portability\"><code>dep3</code></span> —  dep3\n\n");
@@ -807,14 +818,18 @@ bar = [
 
 ]
         "#;
-        let parsed = process_toml(toml, None).unwrap();
+        let parsed = process_toml(toml, &Args::default()).unwrap();
         assert_eq!(
             parsed,
             "* **`dep1`** —  dep1\n\n* **`foo`** —  foo\n\n* **`bar`** *(enabled by default)* —  bar\n\n"
         );
         let parsed = process_toml(
             toml,
-            Some("<span class=\"stab portability\"><code>{feature}</code></span>"),
+            &Args {
+                feature_label: Some(
+                    "<span class=\"stab portability\"><code>{feature}</code></span>".into(),
+                ),
+            },
         )
         .unwrap();
         assert_eq!(
@@ -834,14 +849,18 @@ default = ["teßt."]
 ## A dep
 "dep" = { version = "123", optional = true }
         "#;
-        let parsed = process_toml(toml, None).unwrap();
+        let parsed = process_toml(toml, &Args::default()).unwrap();
         assert_eq!(
             parsed,
             "* **`teßt.`** *(enabled by default)* —  This is a test\n\n* **`dep`** —  A dep\n\n"
         );
         let parsed = process_toml(
             toml,
-            Some("<span class=\"stab portability\"><code>{feature}</code></span>"),
+            &Args {
+                feature_label: Some(
+                    "<span class=\"stab portability\"><code>{feature}</code></span>".into(),
+                ),
+            },
         )
         .unwrap();
         assert_eq!(
