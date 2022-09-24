@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.6 - 2022-09-24
+
+* Fix parsing of escaped string literal in the macro arguments
+
 ## 0.2.5 - 2022-09-17
 
 * Allow customization of the output with the `feature_label=` parameter
