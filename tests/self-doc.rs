@@ -31,4 +31,8 @@ fn self_doc_with_custom_label() {
     let expected =
         "* <span class=\"stab portability\"><code>self-test</code></span> —  Internal feature used only for the tests, don't enable\n\n";
     assert_eq!(actual, expected);
+    let actual2 = document_features::document_features!(
+        feature_label = "<span class=\"stab\u{0020}portability\"><code>{feature}</code></span>"
+    );
+    assert_eq!(actual2, expected);
 }
