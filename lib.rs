@@ -319,13 +319,8 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
             }
         } else if let Some((dep, rest)) = line.split_once("=") {
             let dep = dep.trim().trim_matches('"');
-            // Don't call `get_balanced` if we are not in features or a dependency table
-            let rest = if current_table == "features" || current_table.ends_with("dependencies") {
-                get_balanced(rest, &mut lines)
-                    .map_err(|e| format!("Parse error while parsing dependency {}: {}", dep, e))?
-            } else {
-                Cow::from(rest)
-            };
+            let rest = get_balanced(rest, &mut lines)
+                .map_err(|e| format!("Parse error while parsing value {}: {}", dep, e))?;
             if current_table == "features" && dep == "default" {
                 let defaults = rest
                     .trim()
@@ -424,6 +419,7 @@ fn get_balanced<'a>(
                 }
             } else {
                 match b {
+                    b'\\' => last_slash = true,
                     b'"' => in_quote = true,
                     b'{' | b'[' => level += 1,
                     b'}' | b']' if level == 0 => return Err("unbalanced source".into()),
@@ -666,7 +662,7 @@ default = [
 #ffff
 # ff
 "#,
-            "Parse error while parsing dependency default",
+            "Parse error while parsing value default",
         );
     }
 
@@ -679,7 +675,7 @@ default = [
 foo = [ x = { ]
 bar = []
 "#,
-            "Parse error while parsing dependency foo",
+            "Parse error while parsing value foo",
         );
     }
 
@@ -802,6 +798,14 @@ optional = true
     #[test]
     fn multi_lines() {
         let toml = r#"
+[package.metadata.foo]
+ixyz = [
+    ["array"],
+    [
+        "of",
+        "arrays"
+    ]
+]
 [dev-dependencies]
 ## dep1
 dep1 = {
