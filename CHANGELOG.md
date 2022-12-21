@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.7 - 2002-12-21
+
+* Fix parsing of Cargo.toml with multi-line array of array (#16)
+
 ## 0.2.6 - 2022-09-24
 
 * Fix parsing of escaped string literal in the macro arguments
