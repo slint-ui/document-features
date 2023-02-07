@@ -83,7 +83,6 @@ optional = true
     /**
 This comments goes on top
 * **`foo`** *(enabled by default)* —  The foo feature enables the `foo` functions
-
 * **`bar`** —  The bar feature enables the bar module
 
 #### Experimental features
@@ -94,9 +93,7 @@ The following features are experimental
 
 #### Optional dependencies
 * **`genial`** —  Enable this feature to implement the trait for the types from the genial crate
-
 * **`awesome`** —  This awesome dependency is specified in its own table
-
 */
 )]
 /*!
@@ -295,6 +292,9 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
             if !current_comment.is_empty() {
                 return Err("Cannot mix ## and #! comments between features.".into());
             }
+            if top_comment.is_empty() && !features.is_empty() {
+                top_comment = "\n".into();
+            }
             writeln!(top_comment, "{}", x).unwrap();
         } else if let Some(x) = line.strip_prefix("##") {
             if !x.is_empty() && !x.starts_with(" ") {
@@ -372,24 +372,24 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
                     top,
                     feature_label.replace("{feature}", f),
                     default,
-                    comment
+                    comment.trim_end(),
                 )
                 .unwrap();
             } else {
-                writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment).unwrap();
+                writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment.trim_end()).unwrap();
             }
         } else {
             if let Some(feature_label) = &args.feature_label {
                 writeln!(
                     result,
-                    "{}* {}{}\n",
+                    "{}* {}{}",
                     top,
                     feature_label.replace("{feature}", f),
                     default,
                 )
                 .unwrap();
             } else {
-                writeln!(result, "{}* **`{}`**{}\n", top, f, default).unwrap();
+                writeln!(result, "{}* **`{}`**{}", top, f, default).unwrap();
             }
         }
     }
@@ -782,7 +782,7 @@ version = "42"
 optional = true
         "#;
         let parsed = process_toml(toml, &Args::default()).unwrap();
-        assert_eq!(parsed, " top\n* **`dep1`** —  dep1\n\n yo\n* **`dep3`** —  dep3\n\n");
+        assert_eq!(parsed, " top\n* **`dep1`** —  dep1\n\n yo\n* **`dep3`** —  dep3\n");
         let parsed = process_toml(
             toml,
             &Args {
@@ -792,7 +792,7 @@ optional = true
             },
         )
         .unwrap();
-        assert_eq!(parsed, " top\n* <span class=\"stab portability\"><code>dep1</code></span> —  dep1\n\n yo\n* <span class=\"stab portability\"><code>dep3</code></span> —  dep3\n\n");
+        assert_eq!(parsed, " top\n* <span class=\"stab portability\"><code>dep1</code></span> —  dep1\n\n yo\n* <span class=\"stab portability\"><code>dep3</code></span> —  dep3\n");
     }
 
     #[test]
@@ -830,7 +830,7 @@ bar = [
         let parsed = process_toml(toml, &Args::default()).unwrap();
         assert_eq!(
             parsed,
-            "* **`dep1`** —  dep1\n\n* **`foo`** —  foo\n\n* **`bar`** *(enabled by default)* —  bar\n\n"
+            "* **`dep1`** —  dep1\n* **`foo`** —  foo\n* **`bar`** *(enabled by default)* —  bar\n"
         );
         let parsed = process_toml(
             toml,
@@ -843,7 +843,7 @@ bar = [
         .unwrap();
         assert_eq!(
             parsed,
-            "* <span class=\"stab portability\"><code>dep1</code></span> —  dep1\n\n* <span class=\"stab portability\"><code>foo</code></span> —  foo\n\n* <span class=\"stab portability\"><code>bar</code></span> *(enabled by default)* —  bar\n\n"
+            "* <span class=\"stab portability\"><code>dep1</code></span> —  dep1\n* <span class=\"stab portability\"><code>foo</code></span> —  foo\n* <span class=\"stab portability\"><code>bar</code></span> *(enabled by default)* —  bar\n"
         );
     }
 
@@ -861,7 +861,7 @@ default = ["teßt."]
         let parsed = process_toml(toml, &Args::default()).unwrap();
         assert_eq!(
             parsed,
-            "* **`teßt.`** *(enabled by default)* —  This is a test\n\n* **`dep`** —  A dep\n\n"
+            "* **`teßt.`** *(enabled by default)* —  This is a test\n* **`dep`** —  A dep\n"
         );
         let parsed = process_toml(
             toml,
@@ -874,7 +874,7 @@ default = ["teßt."]
         .unwrap();
         assert_eq!(
             parsed,
-            "* <span class=\"stab portability\"><code>teßt.</code></span> *(enabled by default)* —  This is a test\n\n* <span class=\"stab portability\"><code>dep</code></span> —  A dep\n\n"
+            "* <span class=\"stab portability\"><code>teßt.</code></span> *(enabled by default)* —  This is a test\n* <span class=\"stab portability\"><code>dep</code></span> —  A dep\n"
         );
     }
 }
