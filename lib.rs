@@ -376,18 +376,13 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
                 )
                 .unwrap();
             } else {
-                writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment.trim_end()).unwrap();
+                writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment.trim_end())
+                    .unwrap();
             }
         } else {
             if let Some(feature_label) = &args.feature_label {
-                writeln!(
-                    result,
-                    "{}* {}{}",
-                    top,
-                    feature_label.replace("{feature}", f),
-                    default,
-                )
-                .unwrap();
+                writeln!(result, "{}* {}{}", top, feature_label.replace("{feature}", f), default,)
+                    .unwrap();
             } else {
                 writeln!(result, "{}* **`{}`**{}", top, f, default).unwrap();
             }

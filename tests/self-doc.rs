@@ -18,8 +18,7 @@ fn ensure_it_compiles() {
 #[test]
 fn self_doc() {
     let actual = document_features::document_features!();
-    let expected =
-        "* **`self-test`** —  Internal feature used only for the tests, don't enable\n";
+    let expected = "* **`self-test`** —  Internal feature used only for the tests, don't enable\n";
     assert_eq!(actual, expected);
 }
 
