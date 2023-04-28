@@ -343,7 +343,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
                     }
                 } else if current_table != "features" {
                     return Err(format!(
-                        "Comment cannot be associated with a feature: '{}'",
+                        r#"Comment cannot be associated with a feature: "{}""#,
                         current_comment
                     ));
                 }
@@ -693,7 +693,7 @@ bar = []
 ## hallo
 foo = []
 "#,
-            "Comment cannot be associated with a feature:  hallo",
+            "Comment cannot be associated with a feature: \"  hallo\n\"",
         );
     }
 
