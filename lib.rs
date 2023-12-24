@@ -359,7 +359,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
         return Err("Found comment not associated with a feature".into());
     }
     if features.is_empty() {
-        return Err("Could not find documented features in Cargo.toml".into());
+        return Ok("*No documented features in Cargo.toml*".into());
     }
     let mut result = String::new();
     for (f, top, comment) in features {
@@ -585,26 +585,30 @@ default = ["feat1", "something_else"]
     }
 
     #[test]
-    fn parse_error1() {
-        test_error(
+    fn no_features() {
+        let r = process_toml(
             r#"
 [features]
 [dependencies]
 foo = 4;
 "#,
-            "Could not find documented features",
-        );
+            &Args::default(),
+        )
+        .unwrap();
+        assert_eq!(r, "*No documented features in Cargo.toml*");
     }
 
     #[test]
-    fn parse_error2() {
-        test_error(
+    fn no_features2() {
+        let r = process_toml(
             r#"
 [packages]
 [dependencies]
 "#,
-            "Could not find documented features",
-        );
+            &Args::default(),
+        )
+        .unwrap();
+        assert_eq!(r, "*No documented features in Cargo.toml*");
     }
 
     #[test]
