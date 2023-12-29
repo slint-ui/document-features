@@ -309,7 +309,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
             if !current_comment.is_empty() {
                 let dep = current_table
                     .rsplit_once('.')
-                    .and_then(|(table, dep)| table.trim().ends_with("dependencies").then_some(dep))
+                    .and_then(|(table, dep)| table.trim().ends_with("dependencies").then(|| dep))
                     .ok_or_else(|| format!("Not a feature: `{}`", line))?;
                 features.push((
                     dep.trim(),
