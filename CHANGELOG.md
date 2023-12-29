@@ -1,6 +1,12 @@
 # Changelog
 
-## 0.2.7 - 2002-12-21
+
+## 0.2.7 - 2023-12-29
+
+* Remove `\n` between features (#17)
+* Don't throw an error when there is no features in Cargo.toml (#20)
+
+## 0.2.7 - 2022-12-21
 
 * Fix parsing of Cargo.toml with multi-line array of array (#16)
 
