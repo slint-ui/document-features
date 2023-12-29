@@ -277,7 +277,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
         .map(str::trim)
         // and skip empty lines and comments that are not docs comments
         .filter(|l| {
-            !l.is_empty() && (!l.starts_with("#") || l.starts_with("##") || l.starts_with("#!"))
+            !l.is_empty() && (!l.starts_with('#') || l.starts_with("##") || l.starts_with("#!"))
         });
     let mut top_comment = String::new();
     let mut current_comment = String::new();
@@ -286,7 +286,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
     let mut current_table = "";
     while let Some(line) = lines.next() {
         if let Some(x) = line.strip_prefix("#!") {
-            if !x.is_empty() && !x.starts_with(" ") {
+            if !x.is_empty() && !x.starts_with(' ') {
                 continue; // it's not a doc comment
             }
             if !current_comment.is_empty() {
@@ -297,19 +297,19 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
             }
             writeln!(top_comment, "{}", x).unwrap();
         } else if let Some(x) = line.strip_prefix("##") {
-            if !x.is_empty() && !x.starts_with(" ") {
+            if !x.is_empty() && !x.starts_with(' ') {
                 continue; // it's not a doc comment
             }
             writeln!(current_comment, " {}", x).unwrap();
-        } else if let Some(table) = line.strip_prefix("[") {
+        } else if let Some(table) = line.strip_prefix('[') {
             current_table = table
-                .split_once("]")
+                .split_once(']')
                 .map(|(t, _)| t.trim())
                 .ok_or_else(|| format!("Parse error while parsing line: {}", line))?;
             if !current_comment.is_empty() {
                 let dep = current_table
-                    .rsplit_once(".")
-                    .and_then(|(table, dep)| table.trim().ends_with("dependencies").then(|| dep))
+                    .rsplit_once('.')
+                    .and_then(|(table, dep)| table.trim().ends_with("dependencies").then_some(dep))
                     .ok_or_else(|| format!("Not a feature: `{}`", line))?;
                 features.push((
                     dep.trim(),
@@ -317,17 +317,17 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
                     std::mem::take(&mut current_comment),
                 ));
             }
-        } else if let Some((dep, rest)) = line.split_once("=") {
+        } else if let Some((dep, rest)) = line.split_once('=') {
             let dep = dep.trim().trim_matches('"');
             let rest = get_balanced(rest, &mut lines)
                 .map_err(|e| format!("Parse error while parsing value {}: {}", dep, e))?;
             if current_table == "features" && dep == "default" {
                 let defaults = rest
                     .trim()
-                    .strip_prefix("[")
-                    .and_then(|r| r.strip_suffix("]"))
+                    .strip_prefix('[')
+                    .and_then(|r| r.strip_suffix(']'))
                     .ok_or_else(|| format!("Parse error while parsing dependency {}", dep))?
-                    .split(",")
+                    .split(',')
                     .map(|d| d.trim().trim_matches(|c| c == '"' || c == '\'').trim().to_string())
                     .filter(|d| !d.is_empty());
                 default_features.extend(defaults);
@@ -336,7 +336,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
                 if current_table.ends_with("dependencies") {
                     if !rest
                         .split_once("optional")
-                        .and_then(|(_, r)| r.trim().strip_prefix("="))
+                        .and_then(|(_, r)| r.trim().strip_prefix('='))
                         .map_or(false, |r| r.trim().starts_with("true"))
                     {
                         return Err(format!("Dependency {} is not an optional dependency", dep));
@@ -379,13 +379,11 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
                 writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment.trim_end())
                     .unwrap();
             }
+        } else if let Some(feature_label) = &args.feature_label {
+            writeln!(result, "{}* {}{}", top, feature_label.replace("{feature}", f), default,)
+                .unwrap();
         } else {
-            if let Some(feature_label) = &args.feature_label {
-                writeln!(result, "{}* {}{}", top, feature_label.replace("{feature}", f), default,)
-                    .unwrap();
-            } else {
-                writeln!(result, "{}* **`{}`**{}", top, f, default).unwrap();
-            }
+            writeln!(result, "{}* **`{}`**{}", top, f, default).unwrap();
         }
     }
     result += &top_comment;
@@ -403,7 +401,7 @@ fn get_balanced<'a>(
     let mut level = 0;
     loop {
         let mut last_slash = false;
-        for (idx, b) in line.as_bytes().into_iter().enumerate() {
+        for (idx, b) in line.as_bytes().iter().enumerate() {
             if last_slash {
                 last_slash = false
             } else if in_quote {
