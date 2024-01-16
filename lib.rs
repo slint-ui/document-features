@@ -41,40 +41,38 @@ in where they occur. Use them to group features, for example.
 ## Examples:
 
 */
-// Note: because rustdoc escapes the first `#` of a line starting with `#`,
-// these docs comments have one more `#` ,
 #![doc = self_test!(/**
 [package]
 name = "..."
-## ...
+# ...
 
 [features]
 default = ["foo"]
-##! This comments goes on top
+#! This comments goes on top
 
-### The foo feature enables the `foo` functions
+## The foo feature enables the `foo` functions
 foo = []
 
-### The bar feature enables the bar module
+## The bar feature enables the bar module
 bar = []
 
-##! ### Experimental features
-##! The following features are experimental
+#! ### Experimental features
+#! The following features are experimental
 
-### Enable the fusion reactor
-###
-### ⚠️ Can lead to explosions
+## Enable the fusion reactor
+##
+## ⚠️ Can lead to explosions
 fusion = []
 
 [dependencies]
 document-features = "0.2"
 
-##! ### Optional dependencies
+#! ### Optional dependencies
 
-### Enable this feature to implement the trait for the types from the genial crate
+## Enable this feature to implement the trait for the types from the genial crate
 genial = { version = "0.2", optional = true }
 
-### This awesome dependency is specified in its own table
+## This awesome dependency is specified in its own table
 [dependencies.awesome]
 version = "1.3.5"
 optional = true
@@ -465,14 +463,20 @@ fn test_get_balanced() {
 #[doc(hidden)]
 /// Helper macro for the tests. Do not use
 pub fn self_test_helper(input: TokenStream) -> TokenStream {
-    process_toml((&input).to_string().trim_matches(|c| c == '"' || c == '#'), &Args::default())
-        .map_or_else(
-            |e| error(&e),
-            |r| {
-                std::iter::once(proc_macro::TokenTree::from(proc_macro::Literal::string(&r)))
-                    .collect()
-            },
-        )
+    let mut code = String::new();
+    for line in (&input).to_string().trim_matches(|c| c == '"' || c == '#').lines() {
+        // Rustdoc removes the lines that starts with `# ` and removes one `#` from lines that starts with # followed by space.
+        // We need to re-add the `#` that was removed by rustdoc to get the original.
+        if line.strip_prefix('#').map_or(false, |x| x.is_empty() || x.starts_with(' ')) {
+            code += "#";
+        }
+        code += line;
+        code += "\n";
+    }
+    process_toml(&code, &Args::default()).map_or_else(
+        |e| error(&e),
+        |r| std::iter::once(proc_macro::TokenTree::from(proc_macro::Literal::string(&r))).collect(),
+    )
 }
 
 #[cfg(feature = "self-test")]
