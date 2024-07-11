@@ -511,6 +511,8 @@ macro_rules! self_test {
     };
 }
 
+use self_test;
+
 // The following struct is inserted only during generation of the documentation in order to exploit doc-tests.
 // These doc-tests are used to check that invalid arguments to the `document_features!` macro cause a compile time error.
 // For a more principled way of testing compilation error, maybe investigate <https://docs.rs/trybuild>.
