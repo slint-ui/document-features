@@ -75,5 +75,5 @@ jobs:
           cargo add embassy-time
 
           cargo doc
-          grep -r "No documented features in Cargo.toml" target/doc || exit 0
+          grep -r ">No documented features in Cargo.toml<" target/doc || exit 0
           false
