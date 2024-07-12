@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.1O - 2024-07-12
+
+* Revert parsing of multi-lines string while parsing features
+  (Keep parsing of multi-lines string when detecting if we need to use Cargo.toml.orig)
+
 ## 0.2.9 - 2024-07-11
 
 * Fix parsing of multi-lines string (#25)
