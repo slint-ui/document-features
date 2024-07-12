@@ -531,7 +531,7 @@ fn get_balanced<'a>(
         } else {
             *result.to_mut() += line;
         }
-        if level == 0 && !in_quote {
+        if level == 0 {
             return Ok(result);
         }
         line = if let Some(l) = lines.next() {
@@ -912,11 +912,6 @@ ixyz = [
         "arrays"
     ]
 ]
-replace = """
-<!-- next-header -->
-## [Unreleased] - ReleaseDate
-"""
-
 [dev-dependencies]
 ## dep1
 dep1 = {
