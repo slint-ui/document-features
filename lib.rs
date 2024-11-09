@@ -154,7 +154,7 @@ extern crate proc_macro;
 
 use proc_macro::{TokenStream, TokenTree};
 use std::borrow::Cow;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 use std::fmt::Write;
 use std::path::Path;
@@ -371,6 +371,35 @@ foo = bar
     ));
 }
 
+fn dependents(
+    feature_dependencies: &HashMap<String, Vec<String>>,
+    feature: &str,
+    collected: &mut HashSet<String>,
+) {
+    if collected.contains(feature) {
+        return;
+    }
+    collected.insert(feature.to_string());
+    if let Some(dependencies) = feature_dependencies.get(feature) {
+        for dependency in dependencies {
+            dependents(feature_dependencies, dependency, collected);
+        }
+    }
+}
+
+fn parse_feature_deps<'a>(
+    s: &'a str,
+    dep: &str,
+) -> Result<impl Iterator<Item = String> + 'a, String> {
+    Ok(s.trim()
+        .strip_prefix('[')
+        .and_then(|r| r.strip_suffix(']'))
+        .ok_or_else(|| format!("Parse error while parsing dependency {}", dep))?
+        .split(',')
+        .map(|d| d.trim().trim_matches(|c| c == '"' || c == '\'').trim().to_string())
+        .filter(|d: &String| !d.is_empty()))
+}
+
 fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
     // Get all lines between the "[features]" and the next block
     let mut lines = cargo_toml
@@ -385,6 +414,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
     let mut features = vec![];
     let mut default_features = HashSet::new();
     let mut current_table = "";
+    let mut dependencies = HashMap::new();
     while let Some(line) = lines.next() {
         if let Some(x) = line.strip_prefix("#!") {
             if !x.is_empty() && !x.starts_with(' ') {
@@ -410,7 +440,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
             if !current_comment.is_empty() {
                 let dep = current_table
                     .rsplit_once('.')
-                    .and_then(|(table, dep)| table.trim().ends_with("dependencies").then(|| dep))
+                    .and_then(|(table, dep)| table.trim().ends_with("dependencies").then_some(dep))
                     .ok_or_else(|| format!("Not a feature: `{}`", line))?;
                 features.push((
                     dep.trim(),
@@ -422,16 +452,17 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
             let dep = dep.trim().trim_matches('"');
             let rest = get_balanced(rest, &mut lines)
                 .map_err(|e| format!("Parse error while parsing value {}: {}", dep, e))?;
-            if current_table == "features" && dep == "default" {
-                let defaults = rest
-                    .trim()
-                    .strip_prefix('[')
-                    .and_then(|r| r.strip_suffix(']'))
-                    .ok_or_else(|| format!("Parse error while parsing dependency {}", dep))?
-                    .split(',')
-                    .map(|d| d.trim().trim_matches(|c| c == '"' || c == '\'').trim().to_string())
-                    .filter(|d| !d.is_empty());
-                default_features.extend(defaults);
+            if current_table == "features" {
+                if dep == "default" {
+                    default_features.extend(parse_feature_deps(&rest, dep)?);
+                } else {
+                    for d in parse_feature_deps(&rest, dep)? {
+                        dependencies
+                            .entry(dep.to_string())
+                            .or_insert_with(Vec::new)
+                            .push(d.clone());
+                    }
+                }
             }
             if !current_comment.is_empty() {
                 if current_table.ends_with("dependencies") {
@@ -455,6 +486,12 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
                 ));
             }
         }
+    }
+    let df = default_features.iter().cloned().collect::<Vec<_>>();
+    for feature in df {
+        let mut resolved = HashSet::new();
+        dependents(&dependencies, &feature, &mut resolved);
+        default_features.extend(resolved.iter().cloned());
     }
     if !current_comment.is_empty() {
         return Err("Found comment not associated with a feature".into());
@@ -982,5 +1019,21 @@ default = ["teßt."]
             parsed,
             "* <span class=\"stab portability\"><code>teßt.</code></span> *(enabled by default)* —  This is a test\n* <span class=\"stab portability\"><code>dep</code></span> —  A dep\n"
         );
+    }
+
+    #[test]
+    fn recursive_default() {
+        let toml = r#"
+[features]
+default=["qqq"]
+
+## Qqq
+qqq=["www"]
+
+## Www
+www=[]
+        "#;
+        let parsed = process_toml(toml, &Args::default()).unwrap();
+        assert_eq!(parsed, "* **`qqq`** *(enabled by default)* —  Qqq\n* **`www`** *(enabled by default)* —  Www\n");
     }
 }
