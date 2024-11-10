@@ -58,7 +58,7 @@ jobs:
           cd crater
           cargo add quick-xml -F document-features
           cargo add serde_with -F guide
-          cargo add serial_test -F document-features
+          cargo add serial_test -F docsrs
           cargo add wgpu-core
           cargo add wgpu
           cargo add gix -F document-features
