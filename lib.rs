@@ -492,7 +492,7 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
     for feature in df {
         let mut resolved = HashSet::new();
         dependents(&dependencies, &feature, &mut resolved);
-        default_features.extend(resolved.iter().cloned());
+        default_features.extend(resolved.into_iter());
     }
     if !current_comment.is_empty() {
         return Err("Found comment not associated with a feature".into());
