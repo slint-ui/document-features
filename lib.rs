@@ -503,27 +503,22 @@ fn process_toml(cargo_toml: &str, args: &Args) -> Result<String, String> {
     let mut result = String::new();
     for (f, top, comment) in features {
         let default = if default_features.contains(f) { " *(enabled by default)*" } else { "" };
-        if !comment.trim().is_empty() {
-            if let Some(feature_label) = &args.feature_label {
-                writeln!(
-                    result,
-                    "{}* {}{} —{}",
-                    top,
-                    feature_label.replace("{feature}", f),
-                    default,
-                    comment.trim_end(),
-                )
-                .unwrap();
-            } else {
-                writeln!(result, "{}* **`{}`**{} —{}", top, f, default, comment.trim_end())
-                    .unwrap();
-            }
-        } else if let Some(feature_label) = &args.feature_label {
-            writeln!(result, "{}* {}{}", top, feature_label.replace("{feature}", f), default,)
-                .unwrap();
+        let feature_label = args.feature_label.as_deref().unwrap_or("**`{feature}`**");
+        let comment = if comment.trim().is_empty() {
+            String::new()
         } else {
-            writeln!(result, "{}* **`{}`**{}", top, f, default).unwrap();
-        }
+            format!(" —{}", comment.trim_end())
+        };
+
+        writeln!(
+            result,
+            "{}* {}{}{}",
+            top,
+            feature_label.replace("{feature}", f),
+            default,
+            comment,
+        )
+        .unwrap();
     }
     result += &top_comment;
     Ok(result)
