@@ -215,7 +215,7 @@ fn parse_args(input: TokenStream) -> Result<Args, TokenStream> {
     if let Some(tt) = token_trees.next() {
         match litrs::StringLit::<String>::try_from(&tt) {
             Ok(string_lit) if string_lit.value().contains("{feature}") => {
-                feature_label = string_lit.value().to_string()
+                feature_label = string_lit.into_value()
             }
             _ => {
                 return Err(compile_error(
