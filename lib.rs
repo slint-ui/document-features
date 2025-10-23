@@ -118,9 +118,8 @@ The default formatting is equivalent to:
 
 ## Compatibility
 
-The minimum Rust version required to use this crate is Rust 1.54 because of the
-feature to have macro in doc comments. You can make this crate optional and use
-`#[cfg_attr()]` statements to enable it only when building the documentation:
+The minimum Rust version required to use this crate is Rust 1.56.
+You can make this crate optional and use `#[cfg_attr()]` statements to enable it only when building the documentation:
 You need to have two levels of `cfg_attr` because Rust < 1.54 doesn't parse the attribute
 otherwise.
 
@@ -647,6 +646,7 @@ macro_rules! self_test {
     };
 }
 
+#[allow(unused)] // Workaround until https://github.com/rust-lang/rust/pull/147914 is merged
 use self_test;
 
 // The following struct is inserted only during generation of the documentation in order to exploit doc-tests.

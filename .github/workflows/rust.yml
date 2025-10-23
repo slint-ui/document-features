@@ -18,7 +18,7 @@ jobs:
       matrix:
         rust:
           - stable
-          - 1.54.0
+          - 1.56.0
           - nightly
 
     steps:
