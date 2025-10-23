@@ -308,7 +308,7 @@ fn has_doc_comments(cargo_toml: &str) -> bool {
 }
 
 #[test]
-fn test_has_doc_coment() {
+fn test_has_doc_comments() {
     assert!(has_doc_comments("foo\nbar\n## comment\nddd"));
     assert!(!has_doc_comments("foo\nbar\n#comment\nddd"));
     assert!(!has_doc_comments(
