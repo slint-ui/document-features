@@ -1,6 +1,10 @@
 # Changelog
 
-## 0.2.11 - 2024-02-16
+## 0.2.12 - 2025-10-24
+
+* Update litrs dependency to 1.0.0
+
+## 0.2.11 - 2025-02-16
 
 * Collect defaults recursively (#19)
 
